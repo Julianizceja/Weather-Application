@@ -1,5 +1,5 @@
 import requests
-from PIL import Image, ImageTk  # Import Image and ImageTk from Pillow
+from PIL import Image, ImageTk, ImageSequence  # Import Image and ImageTk from Pillow
 import geocoder
 import tkinter as tk
 import io  # For handling byte streams
@@ -11,9 +11,10 @@ API_KEY = 'd22608d632cd6a389dc448f6d67a26c4'
 BASE_URL = 'https://api.openweathermap.org/data/2.5/weather'
 
 # Paths to your custom .png images
-IMAGE_A_PATH = 'https://assets.caseys.com/m/032adf8b98e5fe3d/400x400-5200013513_base.PNG'  # For 80°F or more
-IMAGE_B_PATH = 'https://assets.caseys.com/m/ba4364deb154dd59/400x400-5200032481_base.PNG'  # For 70°F or less
-IMAGE_C_PATH = 'https://assets.caseys.com/m/4899e0cfa23bacbf/400x400-5200010241_base.PNG'  # For rainy weather
+IMAGE_A_PATH = 'https://i.pinimg.com/originals/67/93/45/679345808c0a740e7aec8ff270192d23.gif'  # Hot weather GIF
+IMAGE_B_PATH = 'https://media.tenor.com/EzU33OqujNsAAAAi/glaceon-eevee.gif'  # Cool weather GIF
+IMAGE_C_PATH = 'https://www.shinyhunters.com/images/regular/134.gif'  # Rainy weather GIF
+LOGO_PATH = 'https://cdn.dribbble.com/users/261567/screenshots/1099769/media/dc312e3c221f0d241ba081535d826eb3.gif'
 
 def geocode(location):
     #initialize geocoder
@@ -82,20 +83,37 @@ def download_image(image_url):
     else:
         return None
 
-def get_image_based_on_weather(weather_data):
+def animate_gif(label, frames, delay):
+    def update(index):
+        frame = frames[index]
+        label.config(image=frame)
+        label.image = frame
+        label.after(delay, update, (index + 1) % len(frames))
+
+    update(0)
+
+def get_image_based_on_weather(weather_data, theme="Default"):
     temperature = weather_data['main']['temp']
     weather_description = weather_data['weather'][0]['description'].lower()
 
-    # Determine which image to show based on temperature or rain
-    if 'rain' in weather_description:
-        image_path = IMAGE_C_PATH  # Rainy weather image
-    elif temperature >= 80:
-        image_path = IMAGE_A_PATH  # Hot weather image
-    elif temperature <= 70:
-        image_path = IMAGE_B_PATH  # Cool weather image
+    # Theme-based image selection
+    if theme == "Rainy":
+        image_path = IMAGE_C_PATH
+    elif theme == "Sunny":
+        image_path = IMAGE_A_PATH
+    elif theme == "Snowy":
+        image_path = IMAGE_SNOWY_PATH
     else:
-        image_path = IMAGE_A_PATH  # Default image (you can modify this as needed)
-
+        # Default behavior
+        if 'rain' in weather_description:
+            image_path = IMAGE_C_PATH
+        elif temperature >= 80:
+            image_path = IMAGE_A_PATH
+        elif temperature <= 70:
+            image_path = IMAGE_B_PATH
+        else:
+            image_path = IMAGE_A_PATH
+    
     # Download and return the selected image using Pillow
     return download_image(image_path)
 
@@ -113,32 +131,70 @@ def show_popup(weather_data, forecast_data):
     popup.geometry("900x1000")
     # Set transparency (Windows: make a specific color transparent)
     # popup.wm_attributes("-alpha", 0)
-
+    
     # Set transparency (macOS: make the entire window transparent)
     # popup.wm_attributes("-transparent", True)
 
+    current_theme = tk.StringVar(value="Default")
+
+
+    def update_image_based_on_theme(theme):
+        weather_image = get_image_based_on_weather(weather_data, theme)
+        if weather_image.format == 'GIF':
+            frames = [ImageTk.PhotoImage(frame.copy().resize((300,300), Image.LANCZOS)) for frame in ImageSequence.Iterator(weather_image)]
+            delay = weather_image.info.get('duration', 100)
+            animate_gif(image_label, frames, delay)
+        else:
+            weather_image_tk = ImageTk.PhotoImage(weather_image)
+            image_label.config(image=weather_image_tk)
+            image_label.image = weather_image_tk
+
+    def on_theme_change(*args):
+        """Callback when the theme is changed."""
+        update_image_based_on_theme(current_theme.get())
+
+    current_theme.trace_add("write", on_theme_change)
+
+    
     # Create a message to show in the popup
     message = (f"City: {weather_data['name']}\n"
                f"Temperature: {weather_data['main']['temp']:.1f}°F\n"
                f"Weather: {weather_data['weather'][0]['description']}")
 
-    # Get the image based on weather conditions
-    weather_image = get_image_based_on_weather(weather_data)
-
-    #resize image might need to use if we use a different pictures
-    #resized_weather_image = weather_image.resize((400,400), Image.LANCZOS)
-    
-    # Create a Tkinter-compatible photo image
-    weather_image_tk = ImageTk.PhotoImage(weather_image)
-
-    # Create a label for the message with a transparent background
     message_label = tk.Label(popup, text=message, padx=10, pady=10, fg="black")
     message_label.pack()
+    
+    # Get the image based on weather conditions
+    weather_image = get_image_based_on_weather(weather_data)
+    #resize image might need to use if we use a different pictures
+    #resized_weather_image = weather_image.resize((100,100), Image.LANCZOS)
+    if weather_image.format == 'GIF':
+        frames = [ImageTk.PhotoImage(frame.copy().resize((300,300), Image.LANCZOS)) for frame in ImageSequence.Iterator(weather_image)]
+        weather_image_tk = frames[0]
+        delay = weather_image.info.get('duration', 100)
+        image_label = tk.Label(popup, image=weather_image_tk)
+        image_label.pack()
+        animate_gif(image_label, frames, delay)
+    else:
+        weather_image_tk = ImageTk.PhotoImage(weather_image)
+        image_label = tk.Label(popup, image=weather_image_tk)
+        image_label.image = weather_image_tk
+        image_label.pack()
+
+    #resize image might need to use if we use a different pictures
+   # resized_weather_image = weather_image.resize((400,400), Image.LANCZOS)
+    
+    # Create a Tkinter-compatible photo image
+    #weather_image_tk = ImageTk.PhotoImage(weather_image)
+
+    # Create a label for the message with a transparent background
+    #message_label = tk.Label(popup, text=message, padx=10, pady=10, fg="black")
+    #message_label.pack()
 
     # Create a label for the image with a transparent background
-    image_label = tk.Label(popup, image=weather_image_tk)
-    image_label.image = weather_image_tk  # Keep a reference to avoid garbage collection
-    image_label.pack()
+   # image_label = tk.Label(popup, image=weather_image_tk)
+    #image_label.image = weather_image_tk  # Keep a reference to avoid garbage collection
+    #image_label.pack()
 
      # Show the forecast
     forecast_label = tk.Label(popup, text="5-Day Forecast:", padx=10, pady=10, fg="black", font=("Helvetica", 14, "bold"))
@@ -151,8 +207,11 @@ def show_popup(weather_data, forecast_data):
         forecast_day_label.pack()
 
     # Ensure the popup window updates its layout to accommodate the image
-    popup.update_idletasks()  # Forces the window to update its size after adding widgets
+    #popup.update_idletasks()  # Forces the window to update its size after adding widgets
 
+    themes = ["Default", "Rainy", "Sunny", "Snowy"]
+    theme_menu = tk.OptionMenu(popup, current_theme, *themes)
+    theme_menu.pack(pady=10)    
 
     # Add a close button (Optional)
     close_button = tk.Button(popup, text="Close", command=lambda: [popup.destroy(), root.quit()])
@@ -167,8 +226,26 @@ def setup_weather_app():
     root.geometry("500x500")
 
     global typed_location_entry
+
+    #show default weather image
+    weather_image = download_image(LOGO_PATH)
+
+    if weather_image.format == 'GIF':
+        frames = [ImageTk.PhotoImage(frame.copy().resize((300, 300), Image.LANCZOS))
+        for frame in ImageSequence.Iterator(weather_image)]
+        
+        weather_image_tk = frames[0]
+        delay = weather_image.info.get('duration', 100)
+        image_label = tk.Label(root, image=weather_image_tk)
+        image_label.pack()
+        animate_gif(image_label, frames, delay)
+    else:
+        weather_image_tk = ImageTk.PhotoImage(weather_image)
+        image_label = tk.Label(root, image=weather_image_tk)
+        image_label.image = weather_image_tk
+        image_label.pack()
     
-    tk.Button(root, text="Current Location", font=('Times', 18), command=show_current_location_weather).pack()
+    tk.Button(root, text="Current Location Weather", font=('Times', 18), command=show_current_location_weather).pack()
 
     tk.Label(root, text="Type in Location: ", font=('Times', 18)).pack()
     typed_location_entry = tk.Entry(root, width=10, font=('Times', 18))
