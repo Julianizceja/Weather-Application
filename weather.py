@@ -9,12 +9,20 @@ from geopy.geocoders import Nominatim
 
 API_KEY = 'd22608d632cd6a389dc448f6d67a26c4'
 BASE_URL = 'https://api.openweathermap.org/data/2.5/weather'
+FIVE_DAY_FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast'
+HOURLY_FORECAST_URL = 'https://pro.openweathermap.org/data/2.5/forecast/hourly'
 
 # Paths to your custom .png images
 IMAGE_A_PATH = 'https://i.pinimg.com/originals/67/93/45/679345808c0a740e7aec8ff270192d23.gif'  # Hot weather GIF
 IMAGE_B_PATH = 'https://media.tenor.com/EzU33OqujNsAAAAi/glaceon-eevee.gif'  # Cool weather GIF
 IMAGE_C_PATH = 'https://www.shinyhunters.com/images/regular/134.gif'  # Rainy weather GIF
+
 LOGO_PATH = 'https://cdn.dribbble.com/users/261567/screenshots/1099769/media/dc312e3c221f0d241ba081535d826eb3.gif'
+CLEAR_SKY_PATH = 'https://cdn.pixabay.com/animation/2023/02/02/16/08/16-08-07-79_512.gif' # Clear sky gif
+RAIN_PATH = 'https://i.pinimg.com/originals/fa/c4/37/fac4371005100d7465f3b533bac3d9b8.gif' #rain gif
+FREEZING_PATH = 'https://media1.tenor.com/m/X-bEkviklBkAAAAC/cold-cold-outside.gif' #freezing weather gif
+HOT_PATH = 'https://media.tenor.com/naQ21gHuAhYAAAAM/kitty-hot.gif' #hot weather gif
+COLD_PATH = 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHA0dGd1YTlzMXcxdDVzODgzZzNncTFrbjI1ejZ4ZDRqaThyNDVpeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT5JwTOtTZzzldjoZ2/giphy.gif'
 
 def geocode(location):
     #initialize geocoder
@@ -44,6 +52,7 @@ def get_weather(lat, lon):
     else:
         return None
 
+    
 def get_weather_forecast(lat, lon):
     params = {
         'lat': lat,
@@ -51,7 +60,7 @@ def get_weather_forecast(lat, lon):
         'appid': API_KEY,
         'units': 'imperial'
     }
-    response = requests.get('https://api.openweathermap.org/data/2.5/forecast', params=params)
+    response = requests.get(FIVE_DAY_FORECAST_URL, params=params)
     if response.status_code == 200:
         return response.json()
     else:
@@ -94,7 +103,7 @@ def animate_gif(label, frames, delay):
 
 def get_image_based_on_weather(weather_data, theme="Default"):
     temperature = weather_data['main']['temp']
-    weather_description = weather_data['weather'][0]['description'].lower()
+    weather_description = weather_data['weather'][0]['description']
 
     # Theme-based image selection
     if theme == "Rainy":
@@ -106,11 +115,13 @@ def get_image_based_on_weather(weather_data, theme="Default"):
     else:
         # Default behavior
         if 'rain' in weather_description:
-            image_path = IMAGE_C_PATH
+            image_path = RAIN_PATH
         elif temperature >= 80:
-            image_path = IMAGE_A_PATH
-        elif temperature <= 70:
-            image_path = IMAGE_B_PATH
+            image_path = HOT_PATH
+        elif temperature <= 70 and temperature > 60:
+            image_path = COLD_PATH
+        elif temperature <=60:
+            image_path = FREEZING_PATH
         else:
             image_path = IMAGE_A_PATH
     
@@ -158,12 +169,12 @@ def show_popup(weather_data, forecast_data):
     
     # Create a message to show in the popup
     message = (f"City: {weather_data['name']}\n"
-               f"Temperature: {weather_data['main']['temp']:.1f}°F\n"
+               f"Current Temperature: {weather_data['main']['temp']:.1f}°F\n"
                f"Weather: {weather_data['weather'][0]['description']}")
 
-    message_label = tk.Label(popup, text=message, padx=10, pady=10, fg="black")
-    message_label.pack()
-    
+    message_label = tk.Label(popup, text=message, padx=5, pady=5, fg="black")
+    message_label.pack()    
+        
     # Get the image based on weather conditions
     weather_image = get_image_based_on_weather(weather_data)
     #resize image might need to use if we use a different pictures
@@ -197,13 +208,13 @@ def show_popup(weather_data, forecast_data):
     #image_label.pack()
 
      # Show the forecast
-    forecast_label = tk.Label(popup, text="5-Day Forecast:", padx=10, pady=10, fg="black", font=("Helvetica", 14, "bold"))
+    forecast_label = tk.Label(popup, text="5-Day Forecast:", padx=5, pady=10, fg="black", font=("Helvetica", 10, "bold"))
     forecast_label.pack()
 
     # Format and display forecast for 5 days
     forecast_data = format_forecast(forecast_data)
     for day_forecast in forecast_data:
-        forecast_day_label = tk.Label(popup, text=day_forecast, padx=10, pady=5, fg="black")
+        forecast_day_label = tk.Label(popup, text=day_forecast, padx=5, pady=5, fg="black")
         forecast_day_label.pack()
 
     # Ensure the popup window updates its layout to accommodate the image
@@ -237,21 +248,21 @@ def setup_weather_app():
         weather_image_tk = frames[0]
         delay = weather_image.info.get('duration', 100)
         image_label = tk.Label(root, image=weather_image_tk)
-        image_label.pack()
+        image_label.pack(padx=5)
         animate_gif(image_label, frames, delay)
     else:
         weather_image_tk = ImageTk.PhotoImage(weather_image)
         image_label = tk.Label(root, image=weather_image_tk)
         image_label.image = weather_image_tk
-        image_label.pack()
+        image_label.pack(padx=5)
     
-    tk.Button(root, text="Current Location Weather", font=('Times', 18), command=show_current_location_weather).pack()
+    tk.Button(root, text="Current Location Weather", font=('Times', 18), command=show_current_location_weather).pack(padx=5)
 
-    tk.Label(root, text="Type in Location: ", font=('Times', 18)).pack()
+    tk.Label(root, text="Type in City: ", font=('Times', 18)).pack(padx=5)
     typed_location_entry = tk.Entry(root, width=10, font=('Times', 18))
     typed_location_entry.pack()
 
-    tk.Button(root, text="Get Weather", font=('Times', 18), command=show_typed_location_weather).pack()
+    tk.Button(root, text="Get City Weather", font=('Times', 18), command=show_typed_location_weather).pack(padx=5)
 
     root.mainloop()
 
@@ -263,7 +274,6 @@ def show_current_location_weather(event=None):
 
     weather_data = get_weather(lat, lon)
     forecast_data = get_weather_forecast(lat, lon)
-
     if weather_data and forecast_data:
         show_popup(weather_data, forecast_data)
     else:
