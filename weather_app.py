@@ -24,6 +24,43 @@ FREEZING_PATH = 'https://media1.tenor.com/m/X-bEkviklBkAAAAC/cold-cold-outside.g
 HOT_PATH = 'https://media.tenor.com/naQ21gHuAhYAAAAM/kitty-hot.gif' #hot weather gif
 COLD_PATH = 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHA0dGd1YTlzMXcxdDVzODgzZzNncTFrbjI1ejZ4ZDRqaThyNDVpeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT5JwTOtTZzzldjoZ2/giphy.gif'
 
+
+dark_mode_colors = {
+    "bg": "#121212",        # Background color
+    "fg": "#ffffff",        # Text color
+    "button_bg": "#1f1f1f", # Button background
+    "button_fg": "#ffffff"  # Button text color
+}
+
+light_mode_colors = {
+    "bg": "#ffffff",
+    "fg": "#000000",
+    "button_bg": "#f0f0f0",
+    "button_fg": "#000000"
+}
+
+
+def apply_theme(popup, theme_colors):
+    # Update the popup's background
+    popup.config(bg=theme_colors["bg"])
+
+    # Update all child widgets
+    for widget in popup.winfo_children():
+        if isinstance(widget, tk.Label):
+            widget.config(bg=theme_colors["bg"], fg=theme_colors["fg"])
+        elif isinstance(widget, tk.Button):
+            widget.config(bg=theme_colors["button_bg"], fg=theme_colors["button_fg"])
+
+def toggle_mode(popup, is_dark_mode_container):
+    is_dark_mode = is_dark_mode_container[0]  # Get the current state
+    if is_dark_mode:
+        apply_theme(popup, light_mode_colors)  # Switch to light mode
+    else:
+        apply_theme(popup, dark_mode_colors)  # Switch to dark mode
+    is_dark_mode_container[0] = not is_dark_mode  # Toggle the state
+
+
+
 def geocode(location):
     #initialize geocoder
     geolocator = Nominatim(user_agent="weatherproject")#required parameter by OpenStreetMap to track usage
@@ -129,6 +166,13 @@ def get_image_based_on_weather(weather_data, theme="Default"):
     return download_image(image_path)
 
 def show_popup(weather_data, forecast_data):
+
+    global current_theme
+    current_theme = light_mode_colors
+
+    is_dark_mode_container = [False]
+    
+
     # Create a new tkinter window
     root = tk.Tk()
     root.withdraw()  # Hide the main window
@@ -223,7 +267,15 @@ def show_popup(weather_data, forecast_data):
     themes = ["Default", "Rainy", "Sunny", "Snowy"]
     theme_menu = tk.OptionMenu(popup, current_theme, *themes)
     theme_menu.pack(pady=10)    
-
+    
+     # Toggle Button
+    toggle_button = tk.Button(
+        popup,
+        text="Toggle Dark Mode",
+        command=lambda: toggle_mode(popup, is_dark_mode_container)
+    )
+    toggle_button.pack(pady=10)
+    
     # Add a close button (Optional)
     close_button = tk.Button(popup, text="Close", command=lambda: [popup.destroy(), root.quit()])
     close_button.pack(pady=10)
@@ -232,9 +284,16 @@ def show_popup(weather_data, forecast_data):
     root.mainloop()
 
 def setup_weather_app():
+
+    global current_theme
+    current_theme = light_mode_colors  # Default theme is light
+    
+    # Mutable container to track dark mode status
+    is_dark_mode_container = [False]
+
     root = tk.Tk()
     root.title("Weather App")
-    root.geometry("500x500")
+    root.geometry("500x600")
 
     global typed_location_entry
 
@@ -262,8 +321,16 @@ def setup_weather_app():
     typed_location_entry = tk.Entry(root, width=10, font=('Times', 18))
     typed_location_entry.pack()
 
-    tk.Button(root, text="Get City Weather", font=('Times', 18), command=show_typed_location_weather).pack(padx=5)
+    tk.Button(root, text="Get City Weather", font=('Times', 18), command=show_typed_location_weather).pack(pady=10)
 
+     # Toggle Button
+    toggle_button = tk.Button(
+        root,
+        text="Toggle Dark Mode",
+        command=lambda: toggle_mode(root, is_dark_mode_container)
+    )
+    toggle_button.pack(pady=5)
+    
     root.mainloop()
 
 def show_current_location_weather(event=None):
