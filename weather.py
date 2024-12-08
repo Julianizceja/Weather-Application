@@ -43,7 +43,6 @@ def show_popup(weather_data):
     popup.wm_attributes("-alpha", 0.9)  # Set transparency to 90%
 
     # Variables
-    current_theme = tk.StringVar(value="Default")  # Track the selected theme
     offset_x = tk.IntVar(value=0)  # Track X offset for dragging
     offset_y = tk.IntVar(value=0)  # Track Y offset for dragging
 
@@ -58,35 +57,13 @@ def show_popup(weather_data):
         y = popup.winfo_y() + (event.y - offset_y.get())
         popup.geometry(f"+{x}+{y}")
 
-    def update_image_based_on_theme(theme):
-        """Update the displayed image based on the selected theme."""
-        weather_image = get_image_based_on_weather(weather_data, theme)
-        if weather_image.format == 'GIF':
-            frames = [ImageTk.PhotoImage(frame.copy()) for frame in ImageSequence.Iterator(weather_image)]
-            delay = weather_image.info.get('duration', 100)
-            animate_gif(image_label, frames, delay)
-        else:
-            weather_image_tk = ImageTk.PhotoImage(weather_image)
-            image_label.config(image=weather_image_tk)
-            image_label.image = weather_image_tk
-
-    def on_theme_change(*args):
-        """Callback when the theme is changed."""
-        update_image_based_on_theme(current_theme.get())
-
-    current_theme.trace_add("write", on_theme_change)
-
     # Enable dragging on the popup
     popup.bind("<ButtonPress-1>", start_drag)
     popup.bind("<B1-Motion>", perform_drag)
 
-    # Popup content
-    message = (f"City: {weather_data['name']}\n"
-               f"Temperature: {weather_data['main']['temp']}°F\n"
-               f"Weather: {weather_data['weather'][0]['description']}")
-
-    message_label = tk.Label(popup, text=message, padx=10, pady=10, fg="black")
-    message_label.pack()
+    # Popup content in horizontal layout
+    container = tk.Frame(popup)
+    container.pack(fill="both", expand=True, padx=10, pady=10)
 
     # Initial weather image
     weather_image = get_image_based_on_weather(weather_data)
@@ -94,23 +71,26 @@ def show_popup(weather_data):
         frames = [ImageTk.PhotoImage(frame.copy()) for frame in ImageSequence.Iterator(weather_image)]
         weather_image_tk = frames[0]
         delay = weather_image.info.get('duration', 100)
-        image_label = tk.Label(popup, image=weather_image_tk)
-        image_label.pack()
+        image_label = tk.Label(container, image=weather_image_tk)
+        image_label.pack(side="left", padx=10)  # Image is now on the left
         animate_gif(image_label, frames, delay)
     else:
         weather_image_tk = ImageTk.PhotoImage(weather_image)
-        image_label = tk.Label(popup, image=weather_image_tk)
+        image_label = tk.Label(container, image=weather_image_tk)
         image_label.image = weather_image_tk
-        image_label.pack()
+        image_label.pack(side="left", padx=10)  # Image is now on the left
 
-    # Theme dropdown
-    themes = ["Default", "Rainy", "Sunny", "Snowy"]
-    theme_menu = tk.OptionMenu(popup, current_theme, *themes)
-    theme_menu.pack(pady=10)
+    # Message label
+    message = (f"City: {weather_data['name']}\n"
+               f"Temperature: {weather_data['main']['temp']}°F\n"
+               f"Weather: {weather_data['weather'][0]['description']}")
+
+    message_label = tk.Label(container, text=message, padx=10, pady=10, fg="black")
+    message_label.pack(side="left", padx=10)
 
     # Close button
-    close_button = tk.Button(popup, text="Close", command=lambda: [popup.destroy(), root.quit()])
-    close_button.pack(pady=10)
+    close_button = tk.Button(container, text="Close", command=lambda: [popup.destroy(), root.quit()])
+    close_button.pack(side="left", padx=10)
 
     root.mainloop()
 
@@ -125,4 +105,3 @@ if weather_data:
     show_popup(weather_data)
 else:
     show_popup({"name": "Error", "main": {"temp": ""}, "weather": [{"description": "Weather data not found!"}]})
-
