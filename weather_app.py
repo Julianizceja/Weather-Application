@@ -1,9 +1,9 @@
 import requests
-from PIL import Image, ImageTk, ImageSequence  # Import Image and ImageTk from Pillow
+from PIL import Image, ImageTk, ImageSequence  
 import geocoder
 import tkinter as tk
 import io  # For handling byte streams
-from tkinter import messagebox
+from tkinter import messagebox, filedialog, simpledialog
 from datetime import datetime
 from geopy.geocoders import Nominatim
 
@@ -17,12 +17,22 @@ IMAGE_A_PATH = 'https://i.pinimg.com/originals/67/93/45/679345808c0a740e7aec8ff2
 IMAGE_B_PATH = 'https://media.tenor.com/EzU33OqujNsAAAAi/glaceon-eevee.gif'  # Cool weather GIF
 IMAGE_C_PATH = 'https://www.shinyhunters.com/images/regular/134.gif'  # Rainy weather GIF
 
-LOGO_PATH = 'https://cdn.dribbble.com/users/261567/screenshots/1099769/media/dc312e3c221f0d241ba081535d826eb3.gif'
+LOGO_PATH = 'https://i.gifer.com/KH8F.gif'
 CLEAR_SKY_PATH = 'https://cdn.pixabay.com/animation/2023/02/02/16/08/16-08-07-79_512.gif' # Clear sky gif
 RAIN_PATH = 'https://i.pinimg.com/originals/fa/c4/37/fac4371005100d7465f3b533bac3d9b8.gif' #rain gif
 FREEZING_PATH = 'https://media1.tenor.com/m/X-bEkviklBkAAAAC/cold-cold-outside.gif' #freezing weather gif
 HOT_PATH = 'https://media.tenor.com/naQ21gHuAhYAAAAM/kitty-hot.gif' #hot weather gif
 COLD_PATH = 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHA0dGd1YTlzMXcxdDVzODgzZzNncTFrbjI1ejZ4ZDRqaThyNDVpeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT5JwTOtTZzzldjoZ2/giphy.gif'
+
+
+weather_images = {
+    "logo": LOGO_PATH,
+    "hot": HOT_PATH,
+    "cold": COLD_PATH,
+    "rainy": RAIN_PATH,
+    "freezing": FREEZING_PATH,
+    "clear": CLEAR_SKY_PATH,
+}
 
 
 dark_mode_colors = {
@@ -52,14 +62,12 @@ def apply_theme(popup, theme_colors):
             widget.config(bg=theme_colors["button_bg"], fg=theme_colors["button_fg"])
 
 def toggle_mode(popup, is_dark_mode_container):
-    is_dark_mode = is_dark_mode_container[0]  # Get the current state
+    is_dark_mode = is_dark_mode_container[0]  
     if is_dark_mode:
-        apply_theme(popup, light_mode_colors)  # Switch to light mode
+        apply_theme(popup, light_mode_colors)  
     else:
-        apply_theme(popup, dark_mode_colors)  # Switch to dark mode
-    is_dark_mode_container[0] = not is_dark_mode  # Toggle the state
-
-
+        apply_theme(popup, dark_mode_colors) 
+    is_dark_mode_container[0] = not is_dark_mode  
 
 def geocode(location):
     #initialize geocoder
@@ -107,7 +115,6 @@ def format_forecast(forecast_data):
     daily_forecast = []
     current_day = None
     for item in forecast_data['list']:
-        # Extract the day from the datetime
         forecast_date = datetime.utcfromtimestamp(item['dt']).strftime('%A, %B %d')
         temp = item['main']['temp']
         weather_description = item['weather'][0]['description']
@@ -116,18 +123,24 @@ def format_forecast(forecast_data):
             daily_forecast.append(f"{forecast_date}: {temp:.1f}°F, {weather_description}")
             current_day = forecast_date
 
-        # Show only one entry per day
         if len(daily_forecast) >= 5:
             break
     return daily_forecast
 
-def download_image(image_url):
-    response = requests.get(image_url)
-    if response.status_code == 200:
-        image_data = io.BytesIO(response.content)
-        return Image.open(image_data)  # Use Pillow to open the image
-    else:
-        return None
+def download_image(image_path):
+    if image_path.startswith('http'):  # URL-based path
+        response = requests.get(image_path)
+        if response.status_code == 200:
+            image_data = io.BytesIO(response.content)
+            return Image.open(image_data)  
+        else:
+            return None
+    else:  # File-based path
+        try:
+            return Image.open(image_path)  
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load image: {e}")
+            return None
 
 def animate_gif(label, frames, delay):
     def update(index):
@@ -138,36 +151,49 @@ def animate_gif(label, frames, delay):
 
     update(0)
 
+def import_image():
+    file_path = filedialog.askopenfilename(
+        title="Select an Image",
+        filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif")]
+    )
+    if file_path:
+        weather_type = simpledialog.askstring(
+            "Select Weather Type",
+            "Enter weather type or logo (e.g., 'cold', 'hot', 'rainy', 'freezing', 'clear', 'logo')"
+        )
+        if weather_type:
+            update_weather_image_path(weather_type.lower(), file_path)
+            messagebox.showinfo("Success", f"Image for '{weather_type}' updated!")
+
+def update_weather_image_path(weather_type, file_path):
+    if weather_type in weather_images:
+        weather_images[weather_type] = file_path
+    else:
+        messagebox.showerror("Error", f"Unknown weather type: '{weather_type}'")
+
 def get_image_based_on_weather(weather_data, theme="Default"):
     temperature = weather_data['main']['temp']
     weather_description = weather_data['weather'][0]['description']
 
-    # Theme-based image selection
-    if theme == "Rainy":
-        image_path = IMAGE_C_PATH
-    elif theme == "Sunny":
-        image_path = IMAGE_A_PATH
-    elif theme == "Snowy":
-        image_path = IMAGE_SNOWY_PATH
+    if 'rain' in weather_description:
+        image_path = weather_images["rainy"]
+    elif temperature >= 80:
+        image_path = weather_images["hot"]
+    elif temperature <= 70 and temperature > 60:
+        image_path = weather_images["cold"]
+    elif temperature <= 60:
+        image_path = weather_images["freezing"]
     else:
-        # Default behavior
-        if 'rain' in weather_description:
-            image_path = RAIN_PATH
-        elif temperature >= 80:
-            image_path = HOT_PATH
-        elif temperature <= 70 and temperature > 60:
-            image_path = COLD_PATH
-        elif temperature <= 60:
-            image_path = FREEZING_PATH
-        else:
-            image_path = IMAGE_A_PATH
-    
-    # Download and return the selected image using Pillow
+        image_path = weather_images["clear"]
+
     return download_image(image_path)
+
+
 
 def show_popup(weather_data, forecast_data):
 
     global current_theme
+    
     current_theme = light_mode_colors
 
     is_dark_mode_container = [False]
@@ -183,7 +209,7 @@ def show_popup(weather_data, forecast_data):
     #popup.overrideredirect(True)  # Remove window borders and title bar
     popup.wm_attributes("-topmost", True)  # Keep the window on top
     #popup.geometry("+100+5")  # Set the popup's position
-    popup.geometry("800x900")
+    popup.geometry("700x670")
     # Set transparency (Windows: make a specific color transparent)
     # popup.wm_attributes("-alpha", 0)
     
@@ -191,32 +217,13 @@ def show_popup(weather_data, forecast_data):
     # popup.wm_attributes("-transparent", True)
 
     current_theme = tk.StringVar(value="Default")
-
-
-    def update_image_based_on_theme(theme):
-        weather_image = get_image_based_on_weather(weather_data, theme)
-        if weather_image.format == 'GIF':
-            frames = [ImageTk.PhotoImage(frame.copy().resize((300,300), Image.LANCZOS)) for frame in ImageSequence.Iterator(weather_image)]
-            delay = weather_image.info.get('duration', 100)
-            animate_gif(image_label, frames, delay)
-        else:
-            weather_image_tk = ImageTk.PhotoImage(weather_image)
-            image_label.config(image=weather_image_tk)
-            image_label.image = weather_image_tk
-
-    def on_theme_change(*args):
-        """Callback when the theme is changed."""
-        update_image_based_on_theme(current_theme.get())
-
-    current_theme.trace_add("write", on_theme_change)
-
     
     # Create a message to show in the popup
     message = (f"City: {weather_data['name']}\n"
                f"Current Temperature: {weather_data['main']['temp']:.1f}°F\n"
                f"Weather: {weather_data['weather'][0]['description']}")
 
-    message_label = tk.Label(popup, text=message, padx=5, pady=5, fg="black")
+    message_label = tk.Label(popup, text=message,font=('Times', 13), padx=5, pady=5, fg="black")
     message_label.pack()    
         
     # Get the image based on weather conditions
@@ -252,28 +259,24 @@ def show_popup(weather_data, forecast_data):
     #image_label.pack()
 
      # Show the forecast
-    forecast_label = tk.Label(popup, text="5-Day Forecast:", padx=5, pady=10, fg="black", font=("Helvetica", 10, "bold"))
+    forecast_label = tk.Label(popup, text="5-Day Forecast:", padx=5, pady=10, fg="black", font=("Times", 13, "bold"))
     forecast_label.pack()
 
     # Format and display forecast for 5 days
     forecast_data = format_forecast(forecast_data)
     for day_forecast in forecast_data:
-        forecast_day_label = tk.Label(popup, text=day_forecast, padx=5, pady=5, fg="black")
+        forecast_day_label = tk.Label(popup, text=day_forecast,font=('Times', 12), padx=5, pady=5, fg="black")
         forecast_day_label.pack()
 
     # Ensure the popup window updates its layout to accommodate the image
     #popup.update_idletasks()  # Forces the window to update its size after adding widgets
 
-    themes = ["Default", "Rainy", "Sunny", "Snowy"]
-    theme_menu = tk.OptionMenu(popup, current_theme, *themes)
-    theme_menu.pack(pady=10)    
+    # themes = ["Default", "Rainy", "Sunny", "Snowy"]
+    # theme_menu = tk.OptionMenu(popup, current_theme, *themes)
+    # theme_menu.pack(pady=10)    
     
-     # Toggle Button
-    toggle_button = tk.Button(
-        popup,
-        text="Toggle Dark Mode",
-        command=lambda: toggle_mode(popup, is_dark_mode_container)
-    )
+    # Toggle Button for Dark Mode
+    toggle_button = tk.Button(popup, text="Toggle Dark Mode", command=lambda: toggle_mode(popup, is_dark_mode_container))
     toggle_button.pack(pady=10)
     
     # Add a close button (Optional)
@@ -301,7 +304,7 @@ def setup_weather_app():
     weather_image = download_image(LOGO_PATH)
 
     if weather_image.format == 'GIF':
-        frames = [ImageTk.PhotoImage(frame.copy().resize((300, 300), Image.LANCZOS))
+        frames = [ImageTk.PhotoImage(frame.copy().resize((310, 310), Image.LANCZOS))
         for frame in ImageSequence.Iterator(weather_image)]
         
         weather_image_tk = frames[0]
@@ -316,22 +319,22 @@ def setup_weather_app():
         image_label.pack(padx=5)
     
     tk.Button(root, text="Current Location Weather", font=('Times', 18), command=show_current_location_weather).pack(padx=5)
-
-    tk.Label(root, text="Type in City: ", font=('Times', 18)).pack(padx=5)
-    typed_location_entry = tk.Entry(root, width=10, font=('Times', 18))
+    
+    tk.Label(root, text="Type in City or City, State: ", font=('Times', 18)).pack(padx=5)
+    typed_location_entry = tk.Entry(root, width=14, font=('Times', 18))
     typed_location_entry.pack()
 
     tk.Button(root, text="Get City Weather", font=('Times', 18), command=show_typed_location_weather).pack(pady=10)
 
-     # Toggle Button
-    toggle_button = tk.Button(
-        root,
-        text="Toggle Dark Mode",
-        command=lambda: toggle_mode(root, is_dark_mode_container)
-    )
+    tk.Button(root, text="Import Weather Image", font=('Times', 15), command=import_image).pack(pady=10)
+
+    # Toggle Button for Dark Mode
+    toggle_button = tk.Button(root, text="Toggle Dark Mode", command=lambda: toggle_mode(root, is_dark_mode_container))
     toggle_button.pack(pady=5)
     
     root.mainloop()
+    
+
 
 def show_current_location_weather(event=None):
     # Get the user's location based on their IP address
@@ -368,5 +371,3 @@ def show_typed_location_weather(event=None):
     
 
 setup_weather_app()
-
-
